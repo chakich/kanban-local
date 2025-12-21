@@ -3,15 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import models, database
 from .routers import columns, tasks
 
-# Создаём таблицы
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Kanban Local")
 
-# САМОЕ ГЛАВНОЕ — разрешаем ВСЁ с фронтенда
+# CORS — разрешаем запросы из frontend (React на 5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # разрешаем любой источник
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

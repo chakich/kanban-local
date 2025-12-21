@@ -1,14 +1,14 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class TaskBase(BaseModel):
     title: str
-    description: str | None = None
+    description: Optional[str] = None
 
 class TaskCreate(TaskBase):
     column_id: int
 
-class TaskUpdate(TaskBase):
+class TaskUpdate(BaseModel):
     column_id: int
     position: int
 
@@ -22,7 +22,7 @@ class Task(TaskBase):
 
 class ColumnBase(BaseModel):
     title: str
-    position: int | None = 0
+    position: Optional[int] = 0
 
 class ColumnCreate(ColumnBase):
     pass

@@ -27,8 +27,35 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
 def move_task(task_id: int, new_column_id: int, new_position: int, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
-        raise HTTPException(404, "Task not found")
+        raise HTTPException(status_code=404, detail="Task not found")
     task.column_id = new_column_id
     task.position = new_position
     db.commit()
+    db.refresh(task)  # добавлено, чтобы вернуть актуальные данные
     return task
+
+# НОВЫЙ ЭНДПОИНТ: Редактирование задачи
+@router.put("/{task_id}", response_model=schemas.Task)
+def update_task(task_id: int, task_update: schemas.TaskBase, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task.title = task_update.title or task.title
+    if task_update.description is not None:
+        task.description = task_update.description
+    
+    db.commit()
+    db.refresh(task)
+    return task
+
+# НОВЫЙ ЭНДПОИНТ: Удаление задачи
+@router.delete("/{task_id}", response_model=dict)
+def delete_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    db.delete(task)
+    db.commit()
+    return {"message": "Task deleted successfully"}
