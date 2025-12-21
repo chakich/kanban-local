@@ -15,9 +15,13 @@ import { CSS } from '@dnd-kit/utilities'
 
 const API_URL = 'http://127.0.0.1:8000'
 
-function SortableTask({ task, onDelete }) {
+function SortableTask({ task, columns, onMoveLeft, onMoveRight, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
+
+  const currentIndex = columns.findIndex(col => col.id === task.column_id)
+  const canMoveLeft = currentIndex > 0
+  const canMoveRight = currentIndex < columns.length - 1
 
   return (
     <div
@@ -25,22 +29,45 @@ function SortableTask({ task, onDelete }) {
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-white p-6 mb-4 rounded-xl shadow-md cursor-grab active:cursor-grabbing hover:shadow-lg border border-gray-200 relative group flex justify-between items-start"
+      className="bg-white p-6 mb-4 rounded-xl shadow-md cursor-grab active:cursor-grabbing hover:shadow-lg border border-gray-200 relative group"
     >
-      <div className="flex-1 pr-10">
-        <h4 className="font-bold text-lg text-gray-800">{task.title}</h4>
-        {task.description && <p className="text-gray-600 text-sm mt-2">{task.description}</p>}
+      <div className="flex justify-between items-start">
+        <div className="flex-1 pr-12">
+          <h4 className="font-bold text-lg text-gray-800">{task.title}</h4>
+          {task.description && <p className="text-gray-600 text-sm mt-2">{task.description}</p>}
+        </div>
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (canMoveLeft) onMoveLeft(task.id, columns[currentIndex - 1].id)
+            }}
+            disabled={!canMoveLeft}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xl ${canMoveLeft ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+          >
+            ←
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (canMoveRight) onMoveRight(task.id, columns[currentIndex + 1].id)
+            }}
+            disabled={!canMoveRight}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xl ${canMoveRight ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-300 cursor-not-allowed'}`}
+          >
+            →
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(task.id)
+            }}
+            className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-xl hover:bg-red-600"
+          >
+            −
+          </button>
+        </div>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()  // чтобы не срабатывал drag
-          onDelete(task.id)
-        }}
-        className="absolute top-4 right-4 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition text-xl font-bold"
-        title="Удалить задачу"
-      >
-        −
-      </button>
     </div>
   )
 }
@@ -90,14 +117,24 @@ export default function App() {
     })
   }
 
+  const moveTaskToColumn = (taskId, newColumnId) => {
+    // ИСПРАВЛЕНО: отправляем правильные имена полей (column_id, position)
+    fetch(`${API_URL}/tasks/${taskId}/move`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        column_id: newColumnId,
+        position: 0
+      })
+    }).then(() => location.reload())
+  }
+
   const deleteTask = (taskId) => {
     if (!confirm('Удалить задачу?')) return
 
     fetch(`${API_URL}/tasks/${taskId}`, {
       method: 'DELETE'
-    }).then(() => {
-      location.reload()
-    })
+    }).then(() => location.reload())
   }
 
   const handleDragEnd = (event) => {
@@ -108,14 +145,7 @@ export default function App() {
     const overTask = tasks.find(t => t.id === over.id)
 
     if (activeTask && overTask && activeTask.column_id !== overTask.column_id) {
-      fetch(`${API_URL}/tasks/${activeTask.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          new_column_id: overTask.column_id,
-          new_position: overTask.position || 0
-        })
-      }).then(() => location.reload())
+      moveTaskToColumn(activeTask.id, overTask.column_id)
     }
   }
 
@@ -155,7 +185,14 @@ export default function App() {
                   .filter(t => t.column_id === column.id)
                   .sort((a, b) => (a.position || 0) - (b.position || 0))
                   .map(task => (
-                    <SortableTask key={task.id} task={task} onDelete={deleteTask} />
+                    <SortableTask
+                      key={task.id}
+                      task={task}
+                      columns={columns}
+                      onMoveLeft={moveTaskToColumn}
+                      onMoveRight={moveTaskToColumn}
+                      onDelete={deleteTask}
+                    />
                   ))}
               </SortableContext>
             </div>
